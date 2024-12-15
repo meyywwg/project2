@@ -93,9 +93,9 @@ def perform_clustering(numeric_columns):
 
 def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
     """Generate and save visualizations with detailed headings and captions."""
-    captions = []
+    visuals = {}
 
-    # Visualization 1: Correlation Heatmap
+    # Correlation Heatmap
     if correlation_matrix is not None:
         plt.figure(figsize=(10, 8))
         sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm")
@@ -104,9 +104,9 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         plt.ylabel("Features")
         heatmap_path = output_dir / "correlation_heatmap.png"
         plt.savefig(heatmap_path)
-        captions.append("Correlation Heatmap: Highlights relationships between numerical features, aiding in identifying multicollinearity.")
+        visuals["Correlation Heatmap"] = heatmap_path
 
-    # Visualization 2: Missing Values
+    # Missing Values
     missing_values_series = df.isnull().sum()
     if missing_values_series.sum() > 0:
         plt.figure(figsize=(8, 6))
@@ -116,9 +116,9 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         plt.ylabel("Count of Missing Values")
         missing_values_path = output_dir / "missing_values.png"
         plt.savefig(missing_values_path)
-        captions.append("Missing Values: Visualizes the extent of missing data to prioritize imputation or exclusion strategies.")
+        visuals["Missing Values"] = missing_values_path
 
-    # Visualization 3: Distribution of First Numerical Column
+    # Distribution of First Numerical Column
     if not numeric_columns.empty:
         plt.figure(figsize=(8, 6))
         sns.histplot(numeric_columns.iloc[:, 0].dropna(), kde=True, color="purple")
@@ -127,9 +127,9 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         plt.ylabel("Frequency")
         dist_path = output_dir / "distribution.png"
         plt.savefig(dist_path)
-        captions.append(f"Distribution of {numeric_columns.columns[0]}: Provides insights into central tendency and spread.")
+        visuals["Distribution"] = dist_path
 
-    # Visualization 4: Boxplot for Numeric Columns
+    # Boxplot for Numeric Columns
     if not numeric_columns.empty:
         plt.figure(figsize=(10, 6))
         sns.boxplot(data=numeric_columns)
@@ -138,62 +138,49 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         plt.ylabel("Values")
         boxplot_path = output_dir / "boxplot.png"
         plt.savefig(boxplot_path)
-        captions.append("Boxplot: Highlights outliers and spread across numerical features.")
+        visuals["Boxplot"] = boxplot_path
 
-    return captions
+    return visuals
 
 def generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, normality_test, pca_variance, pca_loadings, clusters, silhouette_avg, cluster_centers, correlation_matrix=None):
-    """Generate a dynamic prompt for LLM."""
+    """Generate a concise prompt for LLM."""
     prompt = f"""
-Analyze the following dataset summary for {base_folder}:
+Dataset Analysis for {base_folder}:
 
-### 1. Column Types:
+Column Types:
 {column_types}
 
-### 2. Summary Statistics:
+Summary Statistics (Key Metrics):
 {summary_stats}
 
-### 3. Missing Values:
-{missing_values}
+Notable Observations:
+- Missing Values: {missing_values}
+- Outliers Detected: {len(outliers)}
+- Skewness: {skewness_values}
 
-### 4. Outliers:
-{outliers}
+PCA Explained Variance: {pca_variance}
+Clustering Silhouette Score: {silhouette_avg}
 
-### 5. Skewness:
-{skewness_values}
+Correlation Insights:
+{correlation_matrix.to_string() if correlation_matrix is not None else "Not enough data for correlations."}
 
-### 6. Normality Test (p-values):
-{normality_test}
-
-### 7. PCA Explained Variance:
-{pca_variance}
-
-### 8. PCA Loadings:
-{pca_loadings}
-
-### 9. Clustering Results:
-Silhouette Score: {silhouette_avg}
-Cluster Centers:
-{cluster_centers}
-
-{f"### 10. Correlation Matrix:\n{correlation_matrix.to_string()}" if correlation_matrix is not None else ""}
-
-Please provide insights, trends, or recommendations based on these findings. Explain any unexpected correlations, patterns in missing data, and the rationale behind PCA and clustering results. Suggest methods to handle missing data and improve model performance if relevant.
+Provide insights into unexpected correlations, PCA results, and clustering patterns. Suggest strategies for improving data quality or modeling.
 """
     return prompt
 
-def choose_ai_model(data_analysis_type="text", complexity="basic"):
-    """Dynamically select which AI model to use based on data analysis complexity."""
-    if data_analysis_type == "text" and complexity == "basic":
-        return "gpt-4o-mini"
-    elif data_analysis_type == "text" and complexity == "advanced":
-        return "gpt-4"
-    elif data_analysis_type == "code" and complexity == "basic":
-        return "code-davinci-002"
-    elif data_analysis_type == "code" and complexity == "advanced":
-        return "code-davinci-003"
-    else:
-        return "gpt-4o-mini"
+def explore_correlations(correlation_matrix):
+    """Identify and analyze unexpected correlations."""
+    unexpected = correlation_matrix[(correlation_matrix > 0.8) & (correlation_matrix < 1.0)]
+    if unexpected.empty:
+        return "No unexpected high correlations found."
+    analysis = """High correlations detected between the following features:
+"""
+    for row in unexpected.iterrows():
+        feature = row[0]
+        correlations = row[1][row[1] > 0.8]
+        for correlated_feature, value in correlations.items():
+            analysis += f"- {feature} and {correlated_feature}: {value:.2f}\n"
+    return analysis
 
 def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
     """Send the prompt to AI Proxy and return the generated response."""
@@ -206,7 +193,7 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 1000,
+        "max_tokens": 600,
         "temperature": 0.7
     }
 
@@ -215,23 +202,28 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
         return response.json()["choices"][0]["message"]["content"]
     else:
         raise RuntimeError(f"Error: {response.status_code}, {response.text}")
-
-def save_analysis(readme_path, story, captions, output_dir):
+def choose_ai_model(data_analysis_type="text", complexity="basic"):
+    """Dynamically select which AI model to use based on data analysis complexity."""
+    if data_analysis_type == "text" and complexity == "basic":
+        return "gpt-4o-mini"
+    elif data_analysis_type == "text" and complexity == "advanced":
+        return "gpt-4"
+    elif data_analysis_type == "code" and complexity == "basic":
+        return "code-davinci-002"
+    elif data_analysis_type == "code" and complexity == "advanced":
+        return "code-davinci-003"
+    else:
+        return "gpt-4o-mini"
+def save_analysis(readme_path, story, visuals):
     """Save the analysis report and references to visualizations."""
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write("# Analysis Report\n\n")
-        if story:
-            f.write("## Story\n\n")
-            f.write(story)
-        else:
-            f.write("## Story\n\nNo story generated.\n")
+        f.write("## Story\n\n")
+        f.write(story if story else "No story generated.\n")
 
         f.write("\n\n## Visualizations\n")
-        for idx, caption in enumerate(captions, start=1):
-            f.write(f"### Figure {idx}: {caption}\n")
-
-        f.write("\n\n## Summary\n")
-        f.write("This analysis provides key insights into the dataset, highlights significant trends, and suggests actionable recommendations. Consider addressing missing data and leveraging PCA and clustering results for enhanced model performance.")
+        for title, path in visuals.items():
+            f.write(f"### {title}\n![{title}]({path})\n")
 
 def main():
     aiproxy_token = get_aiproxy_token()
@@ -260,10 +252,10 @@ def main():
     pca_result, pca_variance, pca_loadings = perform_pca(numeric_columns)
     clusters, silhouette_avg, cluster_centers = perform_clustering(numeric_columns)
 
-    # Generate prompt
+    correlation_analysis = explore_correlations(correlation_matrix)
+
     prompt = generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, normality_test, pca_variance, pca_loadings, clusters, silhouette_avg, cluster_centers, correlation_matrix)
 
-    # Choose AI model
     ai_model = choose_ai_model(data_analysis_type="text", complexity="basic")
 
     try:
@@ -272,8 +264,10 @@ def main():
         print(str(e))
         story = "Error generating the story. Please check the AI Proxy."
 
-    captions = create_visualizations(df, numeric_columns, correlation_matrix, output_dir)
-    save_analysis(readme_path, story, captions, output_dir)
+    visuals = create_visualizations(df, numeric_columns, correlation_matrix, output_dir)
+    save_analysis(readme_path, story, visuals)
 
 if __name__ == "__main__":
     main()
+
+
