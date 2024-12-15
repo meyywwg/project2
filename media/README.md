@@ -33,10 +33,10 @@ The clustering silhouette score of approximately 0.438 suggests that the cluster
 
 ## Visualizations
 ### Correlation Heatmap
-![Correlation Heatmap](media\correlation_heatmap.png)
+![Correlation Heatmap](correlation_heatmap.png)
 ### Missing Values
-![Missing Values](media\missing_values.png)
+![Missing Values](missing_values.png)
 ### Distribution
-![Distribution](media\distribution.png)
+![Distribution](distribution.png)
 ### Boxplot
-![Boxplot](media\boxplot.png)
+![Boxplot](boxplot.png)
