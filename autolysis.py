@@ -39,12 +39,9 @@ def detect_encoding(filename):
     return chardet.detect(raw_data)['encoding']
 
 def load_dataset(filename):
-    """Load dataset with detected encoding, with error handling."""
-    try:
-        encoding = detect_encoding(filename)
-        return pd.read_csv(filename, encoding=encoding)
-    except Exception as e:
-        raise RuntimeError(f"Error loading {filename}: {e}")
+    """Load dataset with detected encoding."""
+    encoding = detect_encoding(filename)
+    return pd.read_csv(filename, encoding=encoding)
 
 def create_directory_structure(base_folder):
     """Create the output directory dynamically."""
@@ -53,145 +50,120 @@ def create_directory_structure(base_folder):
     return output_dir
 
 def generate_summary(df):
-    """Generate a summary of the dataset, handling missing data."""
+    """Generate a summary of the dataset."""
     summary_stats = df.describe(include="all").to_string()
     missing_values = df.isnull().sum().to_string()
     column_types = df.dtypes.to_string()
     return summary_stats, missing_values, column_types
 
 def detect_outliers(numeric_columns):
-    """Detect outliers using the IQR method, with error handling."""
-    try:
-        Q1 = numeric_columns.quantile(0.25)
-        Q3 = numeric_columns.quantile(0.75)
-        IQR = Q3 - Q1
-        outliers = numeric_columns[(numeric_columns < Q1 - 1.5 * IQR) | (numeric_columns > Q3 + 1.5 * IQR)].dropna()
-        return outliers
-    except Exception as e:
-        raise RuntimeError(f"Error detecting outliers: {e}")
+    """Detect outliers using the IQR method."""
+    Q1 = numeric_columns.quantile(0.25)
+    Q3 = numeric_columns.quantile(0.75)
+    IQR = Q3 - Q1
+    outliers = numeric_columns[(numeric_columns < Q1 - 1.5 * IQR) | (numeric_columns > Q3 + 1.5 * IQR)].dropna()
+    return outliers
 
 def calculate_skewness(numeric_columns):
-    """Calculate skewness for numerical columns with error handling."""
-    try:
-        return numeric_columns.skew().to_string()
-    except Exception as e:
-        raise RuntimeError(f"Error calculating skewness: {e}")
+    """Calculate skewness for numerical columns."""
+    return numeric_columns.skew().to_string()
 
 def perform_pca(numeric_columns):
-    """Perform PCA on numerical data with error handling."""
-    try:
-        pca = PCA(n_components=2)
-        pca_result = pca.fit_transform(numeric_columns.dropna())
-        explained_variance = pca.explained_variance_ratio_.tolist()
-        return pca_result, explained_variance
-    except Exception as e:
-        raise RuntimeError(f"Error performing PCA: {e}")
+    """Perform Principal Component Analysis (PCA) on numerical data."""
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(numeric_columns.dropna())
+    explained_variance = pca.explained_variance_ratio_.tolist()
+    return pca_result, explained_variance
 
 def perform_clustering(numeric_columns):
-    """Perform K-Means clustering with error handling."""
-    try:
-        kmeans = KMeans(n_clusters=3, random_state=42)
-        clusters = kmeans.fit_predict(numeric_columns.dropna())
-        return clusters
-    except Exception as e:
-        raise RuntimeError(f"Error performing clustering: {e}")
+    """Perform K-Means clustering on numerical data."""
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    clusters = kmeans.fit_predict(numeric_columns.dropna())
+    return clusters
 
 def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
-    """Generate and save visualizations with enhanced formatting and clarity."""
-    try:
-        # Correlation Heatmap
-        if correlation_matrix is not None:
-            plt.figure(figsize=(10, 8))
-            sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
-            plt.title("Correlation Heatmap", fontsize=14, fontweight='bold')
-            plt.xlabel("Features", fontsize=12)
-            plt.ylabel("Features", fontsize=12)
-            plt.legend(['Correlation Coefficients'], loc="upper right")
-            heatmap_path = output_dir / "correlation_heatmap.png"
-            plt.savefig(heatmap_path)
+    """Generate and save visualizations."""
+    # Visualization 1: Correlation Heatmap
+    if correlation_matrix is not None:
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm")
+        plt.title("Correlation Heatmap")
+        plt.xlabel("Features")
+        plt.ylabel("Features")
+        heatmap_path = output_dir / "correlation_heatmap.png"
+        plt.savefig(heatmap_path)
 
-        # Missing Values
-        missing_values_series = df.isnull().sum()
-        if missing_values_series.sum() > 0:
-            plt.figure(figsize=(8, 6))
-            missing_values_series[missing_values_series > 0].plot(kind="bar", color="skyblue")
-            plt.title("Missing Values per Column", fontsize=14, fontweight='bold')
-            plt.xlabel("Columns", fontsize=12)
-            plt.ylabel("Count of Missing Values", fontsize=12)
-            plt.legend(['Missing Value Counts'], loc="upper right")
-            missing_values_path = output_dir / "missing_values.png"
-            plt.savefig(missing_values_path)
+    # Visualization 2: Missing Values
+    missing_values_series = df.isnull().sum()
+    if missing_values_series.sum() > 0:
+        plt.figure(figsize=(8, 6))
+        missing_values_series[missing_values_series > 0].plot(kind="bar", color="skyblue")
+        plt.title("Missing Values per Column")
+        plt.xlabel("Columns")
+        plt.ylabel("Count of Missing Values")
+        missing_values_path = output_dir / "missing_values.png"
+        plt.savefig(missing_values_path)
 
-        # Distribution of First Numerical Column
-        if not numeric_columns.empty:
-            plt.figure(figsize=(8, 6))
-            sns.histplot(numeric_columns.iloc[:, 0].dropna(), kde=True, color="purple")
-            plt.title(f"Distribution of {numeric_columns.columns[0]}", fontsize=14, fontweight='bold')
-            plt.xlabel(numeric_columns.columns[0], fontsize=12)
-            plt.ylabel("Frequency", fontsize=12)
-            plt.legend(["Density", "Histogram"], loc="upper right")
-            dist_path = output_dir / "distribution.png"
-            plt.savefig(dist_path)
+    # Visualization 3: Distribution of First Numerical Column
+    if not numeric_columns.empty:
+        plt.figure(figsize=(8, 6))
+        sns.histplot(numeric_columns.iloc[:, 0].dropna(), kde=True, color="purple")
+        plt.title(f"Distribution of {numeric_columns.columns[0]}")
+        plt.xlabel(numeric_columns.columns[0])
+        plt.ylabel("Frequency")
+        dist_path = output_dir / "distribution.png"
+        plt.savefig(dist_path)
 
-        # Boxplot for Numeric Columns
-        if not numeric_columns.empty:
-            plt.figure(figsize=(10, 6))
-            sns.boxplot(data=numeric_columns, palette="Set3")
-            plt.title("Boxplot of Numerical Columns", fontsize=14, fontweight='bold')
-            plt.xlabel("Columns", fontsize=12)
-            plt.ylabel("Values", fontsize=12)
-            plt.legend(["Values per Column"], loc="upper right")
-            boxplot_path = output_dir / "boxplot.png"
-            plt.savefig(boxplot_path)
-
-    except Exception as e:
-        raise RuntimeError(f"Error generating visualizations: {e}")
+    # Visualization 4: Boxplot for Numeric Columns
+    if not numeric_columns.empty:
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(data=numeric_columns)
+        plt.title("Boxplot of Numerical Columns")
+        plt.xlabel("Columns")
+        plt.ylabel("Values")
+        boxplot_path = output_dir / "boxplot.png"
+        plt.savefig(boxplot_path)
 
 def generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, pca_variance, clusters, correlation_matrix=None):
-    """Generate a dynamic prompt for LLM with emphasis on insights and narrative."""
+    """Generate a dynamic prompt for LLM without additional focus input."""
     prompt = f"""
-    Analyze the following dataset summary for {base_folder}:
+Analyze the following dataset summary for {base_folder}:
 
-    ### 1. Column Types:
-    {column_types}
+### 1. Column Types:
+{column_types}
 
-    ### 2. Summary Statistics:
-    {summary_stats}
+### 2. Summary Statistics:
+{summary_stats}
 
-    ### 3. Missing Values:
-    {missing_values}
+### 3. Missing Values:
+{missing_values}
 
-    ### 4. Outliers:
-    {outliers}
+### 4. Outliers:
+{outliers}
 
-    ### 5. Skewness:
-    {skewness_values}
+### 5. Skewness:
+{skewness_values}
 
-    ### 6. PCA Explained Variance:
-    {pca_variance}
+### 6. PCA Explained Variance:
+{pca_variance}
 
-    ### 7. Clustering Results:
-    {clusters}
+### 7. Clustering Results:
+{clusters}
 
-    ### 8. Correlation Matrix:
-    {correlation_matrix.to_string() if correlation_matrix is not None else "N/A"}
+{"### 8. Correlation Matrix:" if correlation_matrix is not None else ""}
+{correlation_matrix.to_string() if correlation_matrix is not None else ""}
 
-    ### 9. Visualizations:
-    Please refer to the following visualizations:
-    - **Correlation Heatmap**: Represents the correlation between numerical features.
-    - **Missing Values**: A bar chart showing the count of missing values per column.
-    - **Distribution**: Distribution of the first numerical column.
-    - **Boxplot**: Displays the distribution and outliers in the numerical columns.
-
-    ### Objective:
-    Provide a coherent narrative summarizing the dataset's structure, trends, outliers, and correlations. Highlight key insights and their implications, focusing on actionable conclusions.
-    """
+Please provide insights, trends, or recommendations based on these findings. Explain any unexpected correlations, patterns in missing data, and the rationale behind PCA and clustering results. Suggest methods to handle missing data and improve model performance if relevant.
+"""
     return prompt
 
-def choose_ai_model(data_analysis_type="text", complexity="basic"):
-    """Dynamically select which AI model to use based on data analysis complexity."""
+def choose_ai_model(data_analysis_type="text"):
+    """Dynamically select which AI model to use based on data analysis type."""
+    # Example of selecting a text analysis model or a vision model.
     if data_analysis_type == "text":
         return "gpt-4o-mini"
+    elif data_analysis_type == "vision":
+        return "openai-vision"
     else:
         return "gpt-4o-mini"
 
@@ -217,7 +189,7 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
         raise RuntimeError(f"Error: {response.status_code}, {response.text}")
 
 def save_analysis(readme_path, story, output_dir):
-    """Save the analysis report with visualizations and a coherent narrative."""
+    """Save the analysis report and references to visualizations."""
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write("# Analysis Report\n\n")
         if story:
@@ -226,21 +198,9 @@ def save_analysis(readme_path, story, output_dir):
         else:
             f.write("## Story\n\nNo story generated.\n")
         f.write("\n\n## Visualizations\n")
-
-        f.write("### Correlation Heatmap\n")
-        f.write("This heatmap shows the correlation between different numerical features. Strong positive or negative correlations can reveal relationships worth exploring further.\n")
         f.write("![Correlation Heatmap](correlation_heatmap.png)\n\n")
-
-        f.write("### Missing Values\n")
-        f.write("The bar chart highlights columns with missing values and their respective counts. This helps identify areas requiring data cleaning.\n")
         f.write("![Missing Values](missing_values.png)\n\n")
-
-        f.write("### Distribution\n")
-        f.write(f"This graph illustrates the distribution of the first numerical column ({numeric_columns.columns[0]}). It provides insights into the data's spread and central tendencies.\n")
-        f.write("![Distribution](distribution.png)\n\n")
-
-        f.write("### Boxplot\n")
-        f.write("This boxplot visualizes the distribution of values and highlights potential outliers for each numerical column.\n")
+        f.write("![Distribution](distribution.png)\n")
         f.write("![Boxplot](boxplot.png)\n")
 
 def main():
@@ -270,9 +230,11 @@ def main():
     pca_result, pca_variance = perform_pca(numeric_columns)
     clusters = perform_clustering(numeric_columns)
 
+    # Generate prompt without asking for additional focus
     prompt = generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, pca_variance, clusters, correlation_matrix)
 
-    ai_model = choose_ai_model(data_analysis_type="text", complexity="advanced")
+    # Choose AI model based on the task (text-based analysis here)
+    ai_model = choose_ai_model(data_analysis_type="text")
 
     try:
         story = send_to_ai_proxy(prompt, aiproxy_token, model=ai_model)
@@ -285,4 +247,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
