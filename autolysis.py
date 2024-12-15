@@ -97,15 +97,16 @@ def perform_clustering(numeric_columns):
         raise RuntimeError(f"Error performing clustering: {e}")
 
 def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
-    """Generate and save visualizations with error handling."""
+    """Generate and save visualizations with enhanced formatting and clarity."""
     try:
         # Correlation Heatmap
         if correlation_matrix is not None:
             plt.figure(figsize=(10, 8))
-            sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm")
-            plt.title("Correlation Heatmap")
-            plt.xlabel("Features")
-            plt.ylabel("Features")
+            sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", cbar_kws={'label': 'Correlation Coefficient'})
+            plt.title("Correlation Heatmap", fontsize=14, fontweight='bold')
+            plt.xlabel("Features", fontsize=12)
+            plt.ylabel("Features", fontsize=12)
+            plt.legend(['Correlation Coefficients'], loc="upper right")
             heatmap_path = output_dir / "correlation_heatmap.png"
             plt.savefig(heatmap_path)
 
@@ -114,9 +115,10 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         if missing_values_series.sum() > 0:
             plt.figure(figsize=(8, 6))
             missing_values_series[missing_values_series > 0].plot(kind="bar", color="skyblue")
-            plt.title("Missing Values per Column")
-            plt.xlabel("Columns")
-            plt.ylabel("Count of Missing Values")
+            plt.title("Missing Values per Column", fontsize=14, fontweight='bold')
+            plt.xlabel("Columns", fontsize=12)
+            plt.ylabel("Count of Missing Values", fontsize=12)
+            plt.legend(['Missing Value Counts'], loc="upper right")
             missing_values_path = output_dir / "missing_values.png"
             plt.savefig(missing_values_path)
 
@@ -124,19 +126,21 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         if not numeric_columns.empty:
             plt.figure(figsize=(8, 6))
             sns.histplot(numeric_columns.iloc[:, 0].dropna(), kde=True, color="purple")
-            plt.title(f"Distribution of {numeric_columns.columns[0]}")
-            plt.xlabel(numeric_columns.columns[0])
-            plt.ylabel("Frequency")
+            plt.title(f"Distribution of {numeric_columns.columns[0]}", fontsize=14, fontweight='bold')
+            plt.xlabel(numeric_columns.columns[0], fontsize=12)
+            plt.ylabel("Frequency", fontsize=12)
+            plt.legend(["Density", "Histogram"], loc="upper right")
             dist_path = output_dir / "distribution.png"
             plt.savefig(dist_path)
 
         # Boxplot for Numeric Columns
         if not numeric_columns.empty:
             plt.figure(figsize=(10, 6))
-            sns.boxplot(data=numeric_columns)
-            plt.title("Boxplot of Numerical Columns")
-            plt.xlabel("Columns")
-            plt.ylabel("Values")
+            sns.boxplot(data=numeric_columns, palette="Set3")
+            plt.title("Boxplot of Numerical Columns", fontsize=14, fontweight='bold')
+            plt.xlabel("Columns", fontsize=12)
+            plt.ylabel("Values", fontsize=12)
+            plt.legend(["Values per Column"], loc="upper right")
             boxplot_path = output_dir / "boxplot.png"
             plt.savefig(boxplot_path)
 
@@ -144,7 +148,7 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         raise RuntimeError(f"Error generating visualizations: {e}")
 
 def generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, pca_variance, clusters, correlation_matrix=None):
-    """Generate a dynamic prompt for LLM with more emphasis on significant findings and insights."""
+    """Generate a dynamic prompt for LLM with emphasis on insights and narrative."""
     prompt = f"""
     Analyze the following dataset summary for {base_folder}:
 
@@ -169,24 +173,25 @@ def generate_prompt(base_folder, column_types, summary_stats, missing_values, ou
     ### 7. Clustering Results:
     {clusters}
 
-    {"### 8. Correlation Matrix:" if correlation_matrix is not None else ""}
-    {correlation_matrix.to_string() if correlation_matrix is not None else ""}
+    ### 8. Correlation Matrix:
+    {correlation_matrix.to_string() if correlation_matrix is not None else "N/A"}
 
     ### 9. Visualizations:
-    Please refer to the following visualizations for a deeper understanding:
+    Please refer to the following visualizations:
     - **Correlation Heatmap**: Represents the correlation between numerical features.
     - **Missing Values**: A bar chart showing the count of missing values per column.
     - **Distribution**: Distribution of the first numerical column.
     - **Boxplot**: Displays the distribution and outliers in the numerical columns.
 
-    Please provide insights based on the findings. Emphasize any unexpected correlations or trends and their implications. For example, describe significant outliers, the rationale behind PCA results, and suggest data cleaning methods where applicable.
+    ### Objective:
+    Provide a coherent narrative summarizing the dataset's structure, trends, outliers, and correlations. Highlight key insights and their implications, focusing on actionable conclusions.
     """
     return prompt
 
 def choose_ai_model(data_analysis_type="text", complexity="basic"):
     """Dynamically select which AI model to use based on data analysis complexity."""
     if complexity == "advanced":
-        return "gpt-4-vision"  # Choose a more advanced or specialized model
+        return "gpt-4-vision"
     elif data_analysis_type == "text":
         return "gpt-4o-mini"
     else:
@@ -214,7 +219,7 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
         raise RuntimeError(f"Error: {response.status_code}, {response.text}")
 
 def save_analysis(readme_path, story, output_dir):
-    """Save the analysis report and references to visualizations."""
+    """Save the analysis report with visualizations and a coherent narrative."""
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write("# Analysis Report\n\n")
         if story:
@@ -223,9 +228,21 @@ def save_analysis(readme_path, story, output_dir):
         else:
             f.write("## Story\n\nNo story generated.\n")
         f.write("\n\n## Visualizations\n")
+
+        f.write("### Correlation Heatmap\n")
+        f.write("This heatmap shows the correlation between different numerical features. Strong positive or negative correlations can reveal relationships worth exploring further.\n")
         f.write("![Correlation Heatmap](correlation_heatmap.png)\n\n")
+
+        f.write("### Missing Values\n")
+        f.write("The bar chart highlights columns with missing values and their respective counts. This helps identify areas requiring data cleaning.\n")
         f.write("![Missing Values](missing_values.png)\n\n")
-        f.write("![Distribution](distribution.png)\n")
+
+        f.write("### Distribution\n")
+        f.write(f"This graph illustrates the distribution of the first numerical column ({numeric_columns.columns[0]}). It provides insights into the data's spread and central tendencies.\n")
+        f.write("![Distribution](distribution.png)\n\n")
+
+        f.write("### Boxplot\n")
+        f.write("This boxplot visualizes the distribution of values and highlights potential outliers for each numerical column.\n")
         f.write("![Boxplot](boxplot.png)\n")
 
 def main():
@@ -270,3 +287,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
