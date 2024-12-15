@@ -201,7 +201,20 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
         return response.json()["choices"][0]["message"]["content"]
     else:
         raise RuntimeError(f"Error: {response.status_code}, {response.text}")
-
+def save_analysis(readme_path, story, output_dir):
+    """Save the analysis report and references to visualizations."""
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write("# Analysis Report\n\n")
+        if story:
+            f.write("## Story\n\n")
+            f.write(story)
+        else:
+            f.write("## Story\n\nNo story generated.\n")
+        f.write("\n\n## Visualizations\n")
+        f.write("![Correlation Heatmap](correlation_heatmap.png)\n\n")
+        f.write("![Missing Values](missing_values.png)\n\n")
+        f.write("![Distribution](distribution.png)\n")
+        f.write("![Boxplot](boxplot.png)\n")
 def main():
     aiproxy_token = get_aiproxy_token()
 
