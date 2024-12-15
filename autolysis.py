@@ -227,8 +227,9 @@ def save_analysis(readme_path, story, visuals):
         f.write(story if story else "No story generated.\n")
 
         f.write("\n\n## Visualizations\n")
-        for title, path in visuals.items():
-            f.write(f"### {title}\n![{title}]({path})\n")
+        file_names = [str(path.name) for title, path in visuals.items()]
+        for title in file_names:
+            f.write(f"### {title}\n![{title}]({title})\n")
 
 def main():
     """Main function to execute the analysis."""
