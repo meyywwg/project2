@@ -227,7 +227,6 @@ def save_analysis(readme_path, story, visuals):
         f.write(story if story else "No story generated.\n")
 
         f.write("\n\n## Visualizations\n")
-        file_names = [str(path.name) for title, path in visuals.items()]
         for title, path in visuals.items():
             f.write(f"### {title}\n![{title}]({path})\n")
 
@@ -276,3 +275,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
