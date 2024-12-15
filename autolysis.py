@@ -21,6 +21,8 @@ import requests
 from pathlib import Path
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from scipy.stats import shapiro
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -65,21 +67,29 @@ def detect_outliers(numeric_columns):
     return outliers
 
 def calculate_skewness(numeric_columns):
-    """Calculate skewness for numerical columns."""
-    return numeric_columns.skew().to_string()
+    """Calculate skewness for numerical columns and test normality."""
+    skewness = numeric_columns.skew().to_dict()
+    normality_test = {
+        col: shapiro(numeric_columns[col].dropna())[1]  # p-value of Shapiro-Wilk test
+        for col in numeric_columns.columns
+    }
+    return skewness, normality_test
 
 def perform_pca(numeric_columns):
     """Perform Principal Component Analysis (PCA) on numerical data."""
     pca = PCA(n_components=2)
     pca_result = pca.fit_transform(numeric_columns.dropna())
     explained_variance = pca.explained_variance_ratio_.tolist()
-    return pca_result, explained_variance
+    loadings = pd.DataFrame(pca.components_, columns=numeric_columns.columns, index=['PC1', 'PC2'])
+    return pca_result, explained_variance, loadings
 
 def perform_clustering(numeric_columns):
-    """Perform K-Means clustering on numerical data."""
+    """Perform K-Means clustering and calculate silhouette score."""
     kmeans = KMeans(n_clusters=3, random_state=42)
     clusters = kmeans.fit_predict(numeric_columns.dropna())
-    return clusters
+    silhouette_avg = silhouette_score(numeric_columns.dropna(), clusters)
+    cluster_centers = pd.DataFrame(kmeans.cluster_centers_, columns=numeric_columns.columns)
+    return clusters, silhouette_avg, cluster_centers
 
 def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
     """Generate and save visualizations."""
@@ -124,8 +134,8 @@ def create_visualizations(df, numeric_columns, correlation_matrix, output_dir):
         boxplot_path = output_dir / "boxplot.png"
         plt.savefig(boxplot_path)
 
-def generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, pca_variance, clusters, correlation_matrix=None):
-    """Generate a dynamic prompt for LLM without additional focus input."""
+def generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, normality_test, pca_variance, pca_loadings, clusters, silhouette_avg, cluster_centers, correlation_matrix=None):
+    """Generate a dynamic prompt for LLM."""
     prompt = f"""
 Analyze the following dataset summary for {base_folder}:
 
@@ -144,26 +154,30 @@ Analyze the following dataset summary for {base_folder}:
 ### 5. Skewness:
 {skewness_values}
 
-### 6. PCA Explained Variance:
+### 6. Normality Test (p-values):
+{normality_test}
+
+### 7. PCA Explained Variance:
 {pca_variance}
 
-### 7. Clustering Results:
-{clusters}
+### 8. PCA Loadings:
+{pca_loadings}
 
-{"### 8. Correlation Matrix:" if correlation_matrix is not None else ""}
-{correlation_matrix.to_string() if correlation_matrix is not None else ""}
+### 9. Clustering Results:
+Silhouette Score: {silhouette_avg}
+Cluster Centers:
+{cluster_centers}
+
+{f"### 10. Correlation Matrix:\n{correlation_matrix.to_string()}" if correlation_matrix is not None else ""}
 
 Please provide insights, trends, or recommendations based on these findings. Explain any unexpected correlations, patterns in missing data, and the rationale behind PCA and clustering results. Suggest methods to handle missing data and improve model performance if relevant.
 """
     return prompt
 
-def choose_ai_model(data_analysis_type="text"):
-    """Dynamically select which AI model to use based on data analysis type."""
-    # Example of selecting a text analysis model or a vision model.
+def choose_ai_model(data_analysis_type="text", complexity="basic"):
+    """Dynamically select which AI model to use based on data analysis complexity."""
     if data_analysis_type == "text":
         return "gpt-4o-mini"
-    elif data_analysis_type == "vision":
-        return "openai-vision"
     else:
         return "gpt-4o-mini"
 
@@ -188,21 +202,6 @@ def send_to_ai_proxy(prompt, aiproxy_token, model="gpt-4o-mini"):
     else:
         raise RuntimeError(f"Error: {response.status_code}, {response.text}")
 
-def save_analysis(readme_path, story, output_dir):
-    """Save the analysis report and references to visualizations."""
-    with open(readme_path, "w", encoding="utf-8") as f:
-        f.write("# Analysis Report\n\n")
-        if story:
-            f.write("## Story\n\n")
-            f.write(story)
-        else:
-            f.write("## Story\n\nNo story generated.\n")
-        f.write("\n\n## Visualizations\n")
-        f.write("![Correlation Heatmap](correlation_heatmap.png)\n\n")
-        f.write("![Missing Values](missing_values.png)\n\n")
-        f.write("![Distribution](distribution.png)\n")
-        f.write("![Boxplot](boxplot.png)\n")
-
 def main():
     aiproxy_token = get_aiproxy_token()
 
@@ -226,14 +225,14 @@ def main():
     numeric_columns = df.select_dtypes(include=["number"])
     correlation_matrix = numeric_columns.corr() if len(numeric_columns.columns) > 1 else None
     outliers = detect_outliers(numeric_columns)
-    skewness_values = calculate_skewness(numeric_columns)
-    pca_result, pca_variance = perform_pca(numeric_columns)
-    clusters = perform_clustering(numeric_columns)
+    skewness_values, normality_test = calculate_skewness(numeric_columns)
+    pca_result, pca_variance, pca_loadings = perform_pca(numeric_columns)
+    clusters, silhouette_avg, cluster_centers = perform_clustering(numeric_columns)
 
-    # Generate prompt without asking for additional focus
-    prompt = generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, pca_variance, clusters, correlation_matrix)
+    # Generate prompt
+    prompt = generate_prompt(base_folder, column_types, summary_stats, missing_values, outliers, skewness_values, normality_test, pca_variance, pca_loadings, clusters, silhouette_avg, cluster_centers, correlation_matrix)
 
-    # Choose AI model based on the task (text-based analysis here)
+    # Choose AI model
     ai_model = choose_ai_model(data_analysis_type="text")
 
     try:
