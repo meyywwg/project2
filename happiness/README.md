@@ -43,10 +43,10 @@ The Silhouette Score of **0.397** indicates that there is some separation betwee
 
 ## Visualizations
 ### Correlation Heatmap
-![Correlation Heatmap](happiness\correlation_heatmap.png)
+![Correlation Heatmap](correlation_heatmap.png)
 ### Missing Values
-![Missing Values](happiness\missing_values.png)
+![Missing Values](missing_values.png)
 ### Distribution
-![Distribution](happiness\distribution.png)
+![Distribution](distribution.png)
 ### Boxplot
-![Boxplot](happiness\boxplot.png)
+![Boxplot](boxplot.png)
