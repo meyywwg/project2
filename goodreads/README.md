@@ -32,8 +32,8 @@ Based on the dataset analysis you provided for Goodreads, here are detailed insi
 ### Correlation Heatmap
 ![Correlation Heatmap](correlation_heatmap.png)
 ### Missing Values
-![Missing Values](goodreads\missing_values.png)
+![Missing Values](missing_values.png)
 ### Distribution
-![Distribution](goodreads\distribution.png)
+![Distribution](distribution.png)
 ### Boxplot
-![Boxplot](goodreads\boxplot.png)
+![Boxplot](boxplot.png)
