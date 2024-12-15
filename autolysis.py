@@ -190,9 +190,7 @@ def generate_prompt(base_folder, column_types, summary_stats, missing_values, ou
 
 def choose_ai_model(data_analysis_type="text", complexity="basic"):
     """Dynamically select which AI model to use based on data analysis complexity."""
-    if complexity == "advanced":
-        return "gpt-4-vision"
-    elif data_analysis_type == "text":
+    if data_analysis_type == "text":
         return "gpt-4o-mini"
     else:
         return "gpt-4o-mini"
